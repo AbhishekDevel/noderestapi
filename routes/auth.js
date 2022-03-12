@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken')
 const userModel = require('../model/userModel');
-const {registrationvalidate} = require('../validation/validationSchema')
+const {registrationvalidate, loginvalidate} = require('../validation/validationSchema')
 
 router.post('/register', async (req,res) =>{
   
@@ -75,6 +76,25 @@ router.post('/setpin', async (req,res) => {
     });
   };
 });
+
+
+router.post('/login', async (req,res) =>{
+  const {error} = loginvalidate(req.body);
+  if (error){
+    return res.status(400).send(error.details[0].message);
+  };
+  await mongoose.connect(process.env['MONGO_URL']);
+  
+  const user = await userModel.findOne({email: req.body.email});
+  if (!user) {
+    return res.status(400).send("Email is incorrect");
+  };
+  const validpass = await bcrypt.compare(req.body.password, user.password);
+  if(!validpass) return res.status(400).send("Password is not correct");
+
+  const token = jwt.sign({_id: user._id}, process.env["JWTKEY"])
+  res.header('auth-token', token).send(token);
+})
 
 
 
